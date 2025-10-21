@@ -6,29 +6,30 @@ import cv2
 def ensure_2d_array(a):
     a = np.asarray(a)
     if a.ndim == 1:
-        return a.reshape(-1,1)
+        return a.reshape(-1, 1)
     return a
 
 def add_bias(X):
     X = ensure_2d_array(X)
-    return np.hstack([np.ones((X.shape[0],1)), X])
+    return np.hstack([np.ones((X.shape[0], 1)), X])
 
 def train_test_split(X, y, test_size=0.2, rng=None):
-    if rng is None: rng = np.random.default_rng()
+    if rng is None:
+        rng = np.random.default_rng()
     N = X.shape[0]
-    idx = rng.permutation(N)
-    cut = int(np.floor((1-test_size)*N))
-    train_idx = idx[:cut]
-    test_idx = idx[cut:]
+    indices = rng.permutation(N)
+    cut = int(np.floor((1 - test_size) * N))
+    train_idx = indices[:cut]
+    test_idx = indices[cut:]
     return X[train_idx], X[test_idx], y[train_idx], y[test_idx]
 
-def normalize_standard(X, mean=None, std=None):
+def normalizacao_dados(X, mean=None, std=None):
     if mean is None:
         mean = X.mean(axis=0)
     if std is None:
         std = X.std(axis=0)
-        std[std==0] = 1.0
-    return (X-mean)/std, mean, std
+        std[std == 0] = 1.0
+    return (X - mean) / std, mean, std
 
 # ---------- Metrics & confusion matrix ----------
 
@@ -36,64 +37,66 @@ def confusion_matrix_custom(y_true, y_pred, labels=None):
     y_true = np.asarray(y_true).ravel()
     y_pred = np.asarray(y_pred).ravel()
     if labels is None:
-        labels = np.unique(np.concatenate([y_true,y_pred]))
+        labels = np.unique(np.concatenate([y_true, y_pred]))
     L = len(labels)
-    lab_to_i = {lab:i for i,lab in enumerate(labels)}
-    C = np.zeros((L,L), dtype=int)
-    for t,p in zip(y_true, y_pred):
+    lab_to_i = {lab: i for i, lab in enumerate(labels)}
+    C = np.zeros((L, L), dtype=int)
+    for t, p in zip(y_true, y_pred):
         C[lab_to_i[t], lab_to_i[p]] += 1
     return C, labels
 
 def accuracy_from_confusion(C):
-    return np.trace(C)/np.sum(C) if np.sum(C)>0 else 0.0
+    total = np.sum(C)
+    return np.trace(C) / total if total > 0 else 0.0
 
 def precision_sensitivity_specificity_f1(C, pos_label_index=1):
-    if C.shape != (2,2):
-        raise ValueError("This helper expects a 2x2 confusion matrix for binary metrics.")
-    TP = C[1,1]
-    TN = C[0,0]
-    FP = C[0,1]
-    FN = C[1,0]
-    acc = (TP+TN)/C.sum() if C.sum()>0 else 0.0
-    sens = TP/(TP+FN) if (TP+FN)>0 else 0.0
-    spec = TN/(TN+FP) if (TN+FP)>0 else 0.0
-    prec = TP/(TP+FP) if (TP+FP)>0 else 0.0
-    f1 = 2*prec*sens/(prec+sens) if (prec+sens)>0 else 0.0
-    return {'accuracy':acc,'sensitivity':sens,'specificity':spec,'precision':prec,'f1':f1}
-
-# ---------- Data loaders and processing ----------
+    if C.shape != (2, 2):
+        raise ValueError("Essa função espera uma matriz 2x2 para métricas binárias.")
+    TP = int(C[1, 1])
+    TN = int(C[0, 0])
+    FP = int(C[0, 1])
+    FN = int(C[1, 0])
+    total = C.sum()
+    acc = (TP + TN) / total if total > 0 else 0.0
+    sens = TP / (TP + FN) if (TP + FN) > 0 else 0.0
+    spec = TN / (TN + FP) if (TN + FP) > 0 else 0.0
+    prec = TP / (TP + FP) if (TP + FP) > 0 else 0.0
+    f1 = 2 * prec * sens / (prec + sens) if (prec + sens) > 0 else 0.0
+    return {'accuracy': acc, 'sensitivity': sens, 'specificity': spec, 'precision': prec, 'f1': f1}
 
 def load_spiral_csv(path='spiral_d.csv'):
     if not os.path.exists(path):
-        raise FileNotFoundError(f"File '{path}' not found. Please place spiral_d.csv in the working directory.")
+        raise FileNotFoundError(f"Arquivo '{path}' não encontrado. Coloque 'spiral_d.csv' no diretório de trabalho.")
     data = np.loadtxt(path, delimiter=',')
     if data.shape[1] < 3:
-        raise ValueError("Expected at least 3 columns: x,y,label")
-    X = data[:,:2]
-    y = data[:,2].astype(int)
+        raise ValueError("Esperado arquivo com pelo menos 3 colunas: x,y,label")
+    X = data[:, :2]
+    y = data[:, 2].astype(int)
     return X, y
 
-# Função de redimensionamento mantida como fallback para PIL/plt.imread
+
 def resize_image_numpy(img, new_h, new_w):
-    h,w = img.shape
+    h, w = img.shape
     row_scale = h / new_h
     col_scale = w / new_w
-    out = np.zeros((new_h,new_w), dtype=float)
+    out = np.zeros((new_h, new_w), dtype=float)
     for i in range(new_h):
-        r0 = int(np.floor(i*row_scale))
-        r1 = int(np.floor((i+1)*row_scale))
-        if r1<=r0: r1 = r0+1
+        r0 = int(np.floor(i * row_scale))
+        r1 = int(np.floor((i + 1) * row_scale))
+        if r1 <= r0:
+            r1 = r0 + 1
         for j in range(new_w):
-            c0 = int(np.floor(j*col_scale))
-            c1 = int(np.floor((j+1)*col_scale))
-            if c1<=c0: c1 = c0+1
+            c0 = int(np.floor(j * col_scale))
+            c1 = int(np.floor((j + 1) * col_scale))
+            if c1 <= c0:
+                c1 = c0 + 1
             block = img[r0:r1, c0:c1]
-            out[i,j] = block.mean() if block.size>0 else 0.0
+            out[i, j] = block.mean() if block.size > 0 else 0.0
     return out
 
-def load_recfac(folder='recfac', choose_size=(40,40)):
+def load_recfac(folder='recfac', choose_size=(40, 40)):
     if not os.path.isdir(folder):
-        raise FileNotFoundError(f"A pasta '{folder}' não foi encontrada. Certifique-se de descompactar o RecFac.zip e nomear a pasta como '{folder}'.")
+        raise FileNotFoundError(f"A pasta '{folder}' não foi encontrada. Verifique o caminho e a estrutura de subpastas.")
 
     valid_exts = ('.png', '.jpg', '.jpeg')
     images = []
@@ -105,58 +108,55 @@ def load_recfac(folder='recfac', choose_size=(40,40)):
 
     for root, _, filenames in os.walk(folder):
         subject_name = os.path.basename(root)
-        
         if not filenames or subject_name in (folder, ''):
             continue
-            
+
         if subject_name not in subject_map:
             subject_map[subject_name] = next_label
             next_label += 1
-        
+
         current_label = subject_map[subject_name]
-        
+
         for filename in sorted(filenames):
             if filename.lower().endswith(valid_exts):
                 full_path = os.path.join(root, filename)
-                
                 img_cv = cv2.imread(full_path, cv2.IMREAD_GRAYSCALE)
-                if img_cv is None: raise IOError("CV2 falhou ao ler a imagem.")
-                        
-                # Redimensionamento otimizado com interpolação linear
+                if img_cv is None:
+                    raise IOError("Falha ao ler a imagem com OpenCV: {0}".format(full_path))
+
                 img_small = cv2.resize(img_cv, choose_size, interpolation=cv2.INTER_LINEAR)
                 img_small = img_small.astype(float)
-                    
                 images.append(img_small.flatten())
                 labels.append(current_label)
 
     if len(images) == 0:
-        raise FileNotFoundError(f"Nenhum arquivo de imagem ({', '.join(valid_exts)}) encontrado dentro das subpastas de '{folder}'.")
+        raise FileNotFoundError(f"Nenhum arquivo de imagem ({', '.join(valid_exts)}) encontrado nas subpastas de '{folder}'.")
 
     print(f"Total de imagens carregadas: {len(images)}")
     print(f"Total de classes (sujeitos) encontrados: {next_label}")
 
     X = np.vstack(images)
     y = np.array(labels, dtype=int)
-    
     return X, y
 
 def one_hot(y, C=None):
     y = np.asarray(y).astype(int)
-    if C is None: C = np.max(y)+1
+    if C is None:
+        C = np.max(y) + 1
     out = -np.ones((len(y), C), dtype=float)
-    for i,lab in enumerate(y):
-        out[i,:] = -1.0; out[i,lab] = 1.0
+    for i, lab in enumerate(y):
+        out[i, :] = -1.0
+        out[i, lab] = 1.0
     return out
 
 def one_hot_standard(y, C=None):
     y = np.asarray(y).astype(int)
-    if C is None: C = np.max(y)+1
+    if C is None:
+        C = np.max(y) + 1
     out = np.zeros((len(y), C), dtype=float)
-    for i,lab in enumerate(y):
-        out[i,lab] = 1.0
+    for i, lab in enumerate(y):
+        out[i, lab] = 1.0
     return out
-
-# ---------- Plotting helpers (Mantidas aqui pois são utilitárias) ----------
 
 def plot_scatter(X, y, title='Scatter plot'):
     plt.figure(figsize=(6,5))
@@ -194,12 +194,6 @@ def summary_statistics(metric_values):
     return {'mean':arr.mean(), 'std':arr.std(ddof=0), 'max':arr.max(), 'min':arr.min()}
 
 
-# ====================================================================
-# CLASSES DE REDES NEURAIS
-# ====================================================================
-
-# ---------- Perceptron (binary) ----------
-
 class Perceptron:
     def __init__(self, lr=0.01, epochs=100, bipolar=True, tol=1e-6, random_state=None):
         self.lr = lr
@@ -217,60 +211,127 @@ class Perceptron:
             return np.where(x>=0, 1, 0)
 
     def fit(self, X, y):
-        X = ensure_2d_array(X); N, p = X.shape; Xb = add_bias(X)
-        y_proc = np.array(y).copy()
-        if self.bipolar: y_proc = np.where(y_proc==0, -1, y_proc)
-        self.w = self.rng.normal(scale=0.1, size=(p+1,))
-        for epoch in range(self.epochs):
-            errors = 0
-            for xi, target in zip(Xb, y_proc):
-                out = np.dot(self.w, xi)
-                y_pred = 1 if out>=0 else -1 if self.bipolar else (1 if out>=0 else 0)
-                delta = (target - y_pred)
-                if delta != 0:
-                    self.w += self.lr * delta * xi
-                    errors += 1
-            y_pred_all = self.activation(Xb.dot(self.w))
-            acc = np.mean(y_pred_all==y_proc)
+        X = ensure_2d_array(X)
+        N, p = X.shape
+        Xb = add_bias(X)  # N x (p+1)
+
+        y_proc = np.array(y).copy().astype(float)
+        if self.bipolar:
+            y_proc = np.where(y_proc == 0, -1, y_proc)
+
+        self.w = (self.rng.random((p + 1, 1)) - 0.5)
+
+        self.p = p
+        self.N = N
+        self.X_train = Xb.T  # (p+1) x N
+        self.d = y_proc
+
+        epoch = 0
+        while epoch < self.epochs:
+            error_flag = False
+            for k in range(self.N):
+                x_k = self.X_train[:, k].reshape(self.p + 1, 1)
+                u_k = (self.w.T @ x_k)[0, 0]
+                # saída do perceptron (bipolar ou binária)
+                if self.bipolar:
+                    y_k = 1 if u_k >= 0 else -1
+                else:
+                    y_k = 1 if u_k >= 0 else 0
+                d_k = float(self.d[k])
+                e_k = d_k - y_k
+                if e_k != 0:
+                    error_flag = True
+                    # atualização por amostra
+                    self.w = self.w + (self.lr * e_k) * x_k
+
+            # registrar métricas por época
+            preds = self.predict(X)
+            acc = np.mean(preds == y_proc)
+            loss = np.mean((preds != y_proc).astype(float))
             self.history['acc'].append(acc)
-            self.history['loss'].append(errors/N)
-            if errors==0: break
+            self.history['loss'].append(loss)
+
+            epoch += 1
+            if not error_flag:
+                break
+
         return self
 
     def predict(self, X):
-        Xb = add_bias(X); out = Xb.dot(self.w)
+        Xb = add_bias(X)
+        out = Xb.dot(self.w).ravel()
         return self.activation(out)
-
-# ---------- ADALINE (binary) ----------
 
 class Adaline:
     def __init__(self, lr=0.001, epochs=100, bipolar=True, tol=1e-6, random_state=None):
-        self.lr = lr; self.epochs = epochs; self.bipolar = bipolar; self.tol = tol
-        self.rng = np.random.default_rng(random_state); self.w = None; self.history = {'mse':[]}
+        self.lr = lr
+        self.max_epoch = epochs
+        self.bipolar = bipolar
+        self.tol = tol
+        self.rng = np.random.default_rng(random_state)
+        self.w = None
+        self.history = {'mse': []}
 
     def activation(self, x):
-        if self.bipolar: return np.where(x>=0, 1, -1)
-        else: return np.where(x>=0, 1, 0)
+        if self.bipolar:
+            return np.where(x >= 0, 1, -1)
+        else:
+            return np.where(x >= 0, 1, 0)
+
+    def _eqm(self, Xb, d):
+        # usa definição sum((d-u)^2)/(2N) para ser explícito e compatível
+        u = Xb.dot(self.w).ravel()
+        err = d - u
+        return np.sum(err ** 2) / (2.0 * len(d))
 
     def fit(self, X, y):
-        X = ensure_2d_array(X); Xb = add_bias(X); N, p = X.shape
-        y_proc = np.array(y).astype(float)
-        if self.bipolar: y_proc = np.where(y_proc==0, -1, y_proc)
-        self.w = self.rng.normal(scale=0.01, size=(p+1,))
-        for epoch in range(self.epochs):
-            net = Xb.dot(self.w); error = y_proc - net; mse = np.mean(error**2)
-            self.history['mse'].append(mse)
-            grad = -2 * Xb.T.dot(error) / N
-            self.w = self.w - self.lr * grad
-            if mse < self.tol: break
+        X = ensure_2d_array(X)
+        N, p = X.shape
+        Xb = add_bias(X)  # N x (p+1)
+
+        d = np.array(y).astype(float)
+        if self.bipolar:
+            d = np.where(d == 0, -1.0, d)
+
+        # inicializa pesos em coluna (p+1, 1) em [-0.5, 0.5)
+        self.w = (self.rng.random((p + 1, 1)) - 0.5)
+
+        self.p = p
+        self.N = N
+        self.X_train = Xb.T  # (p+1) x N, compatível com acesso por coluna
+        self.d = d
+
+        hist = []
+        epoch = 0
+        eqm_prev = float('inf')
+        eqm_curr = self._eqm(Xb, d)
+
+        while epoch < self.max_epoch and abs(eqm_prev - eqm_curr) > self.tol:
+            eqm_prev = eqm_curr
+            hist.append(eqm_prev)
+
+            for k in range(self.N):
+                # x_k como vetor coluna (p+1,1)
+                x_k = self.X_train[:, k].reshape(self.p + 1, 1)
+                # u_k = w^T x_k  (escala)
+                u_k = (self.w.T @ x_k)[0, 0]
+                d_k = float(self.d[k])
+                e_k = d_k - u_k
+                self.w = self.w + (self.lr * e_k) * x_k
+
+            # recalcula EQM e avança época
+            eqm_curr = self._eqm(Xb, d)
+            epoch += 1
+
+        hist.append(eqm_curr)
+        self.history['mse'] = hist
         return self
 
     def predict(self, X):
-        Xb = add_bias(X); out = Xb.dot(self.w)
+        Xb = add_bias(X)
+        out = Xb.dot(self.w).ravel()
         return self.activation(out)
 
-
-# ---------- MLP (multilayer perceptron) ----------
 
 def sigmoid(x): return 1/(1+np.exp(-x))
 def dsigmoid(y): return y*(1-y)
@@ -334,8 +395,6 @@ class MLP:
         activations, _ = self._forward(ensure_2d_array(X))
         return activations[-1]
 
-# ---------- RBF Network ----------
-
 def gaussian_rbf(x, c, s):
     diff = x[:,None,:] - c[None,:,:]
     dist2 = np.sum(diff**2, axis=2)
@@ -345,7 +404,6 @@ class RBFNetwork:
     def __init__(self, n_centers=10, gamma=None, sigma=None, random_state=None):
         self.n_centers = n_centers; self.gamma = gamma; self.sigma = sigma; self.random_state = random_state
         self.rng = np.random.default_rng(random_state); self.centers = None; self.sigma_val = None; self.W = None
-        # Inicialização do histórico para compatibilidade com a pipeline (Correção do erro 'history')
         self.history = {'loss': [], 'acc': []} 
 
     def _choose_centers(self, X):
@@ -384,7 +442,6 @@ class RBFNetwork:
         proba = self.predict_proba(X)
         return np.argmax(proba, axis=1)
 
-# ---------- Experiment pipeline (Mantida aqui pois depende das classes) ----------
 
 def run_binary_classification_mc(X, y, model_name='perceptron', R=500, test_size=0.2, rng_seed=0, **model_kwargs):
     rng = np.random.default_rng(rng_seed)
@@ -392,7 +449,7 @@ def run_binary_classification_mc(X, y, model_name='perceptron', R=500, test_size
     
     for r in range(R):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, rng=rng)
-        X_train_n, mean, std = normalize_standard(X_train)
+        X_train_n, mean, std = normalizacao_dados(X_train)#<<AQUI ACONTECE A NORMALIZAÇÃO DOS DADOS>>
         X_test_n = (X_test-mean)/std
         
         m = None
