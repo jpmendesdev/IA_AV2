@@ -19,7 +19,6 @@ def add_bias(X):
     return np.hstack([np.ones((X.shape[0], 1)), X])
 
 def train_test_split(X, y, test_size=0.2, rng=None):
-    """Divide X e y em conjuntos de treino/teste usando permutação aleatória."""
     if rng is None:
         rng = np.random.default_rng()
     N = X.shape[0]
@@ -29,8 +28,7 @@ def train_test_split(X, y, test_size=0.2, rng=None):
     test_idx = indices[cut:]
     return X[train_idx], X[test_idx], y[train_idx], y[test_idx]
 
-def normalize_standard(X, mean=None, std=None):
-    """Normalização padrão (z-score). Retorna X_norm, mean, std."""
+def normalizacao_dados(X, mean=None, std=None):
     if mean is None:
         mean = X.mean(axis=0)
     if std is None:
@@ -62,10 +60,6 @@ def accuracy_from_confusion(C):
     return np.trace(C) / total if total > 0 else 0.0
 
 def precision_sensitivity_specificity_f1(C, pos_label_index=1):
-    """Calcula métricas binárias a partir de uma matriz 2x2.
-
-    Retorna dict com accuracy, sensitivity, specificity, precision e f1.
-    """
     if C.shape != (2, 2):
         raise ValueError("Essa função espera uma matriz 2x2 para métricas binárias.")
     TP = int(C[1, 1])
@@ -93,7 +87,6 @@ def load_spiral_csv(path='spiral_d.csv'):
 
 
 def resize_image_numpy(img, new_h, new_w):
-    """Redimensiona imagem 2D usando média de blocos (forma simples e determinística)."""
     h, w = img.shape
     row_scale = h / new_h
     col_scale = w / new_w
@@ -113,10 +106,6 @@ def resize_image_numpy(img, new_h, new_w):
     return out
 
 def load_recfac(folder='recfac', choose_size=(40, 40)):
-    """Carrega imagens organizadas em subpastas (uma pasta = um sujeito) e retorna (X, y).
-
-    As imagens são convertidas para escala de cinza e redimensionadas para `choose_size`.
-    """
     if not os.path.isdir(folder):
         raise FileNotFoundError(f"A pasta '{folder}' não foi encontrada. Verifique o caminho e a estrutura de subpastas.")
 
@@ -180,8 +169,6 @@ def one_hot_standard(y, C=None):
         out[i, lab] = 1.0
     return out
 
-# ---------- Plotting helpers (Mantidas aqui pois são utilitárias) ----------
-
 def plot_scatter(X, y, title='Scatter plot'):
     plt.figure(figsize=(6,5))
     labs = np.unique(y)
@@ -217,10 +204,6 @@ def summary_statistics(metric_values):
     arr = np.array(metric_values)
     return {'mean':arr.mean(), 'std':arr.std(ddof=0), 'max':arr.max(), 'min':arr.min()}
 
-
-# ====================================================================
-# CLASSES DE REDES NEURAIS
-# ====================================================================
 
 class Perceptron:
     def __init__(self, lr=0.01, epochs=100, bipolar=True, tol=1e-6, random_state=None):
@@ -477,7 +460,7 @@ def run_binary_classification_mc(X, y, model_name='perceptron', R=500, test_size
     
     for r in range(R):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, rng=rng)
-        X_train_n, mean, std = normalize_standard(X_train)
+        X_train_n, mean, std = normalizacao_dados(X_train)#<<AQUI ACONTECE A NORMALIZAÇÃO DOS DADOS>>
         X_test_n = (X_test-mean)/std
         
         m = None
