@@ -159,5 +159,5 @@ def run_experiments(csv_path="spiral_d.csv", R=50, seed=0,
     return {'results':results, 'confusions':confusions, 'mlp_histories':mlp_learning_histories}
 
 if __name__ == "__main__":
-    out = run_experiments(csv_path="spiral_d.csv", R=500, seed=123,
+    run_experiments(csv_path="spiral_d.csv", R=500, seed=123,
                           mlp_topologies_under_over=[[2],[8],[40]])

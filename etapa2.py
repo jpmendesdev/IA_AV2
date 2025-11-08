@@ -22,14 +22,14 @@ def load_images_from_folder(root_folder, size=(40,40)):
             labels.append(idx)
     if len(images) == 0:
         raise RuntimeError(f"Nenhuma imagem encontrada em {root_folder}.")
-    images = np.stack(images, axis=0)  # (N,H,W)
+    images = np.stack(images, axis=0)   
     labels = np.array(labels, dtype=int)
     return images, labels, class_names
 
 def build_X_Y(images, labels):
     N, H, W = images.shape
     p = H*W
-    X_flat_T = images.reshape(N, p).T  # shape (p, N)
+    X_flat_T = images.reshape(N, p).T   
     C = labels.max() + 1
     Y = -np.ones((C, N), dtype=np.float32)
     for i in range(N):
@@ -84,8 +84,6 @@ def run_recfac(root_folder='recfac', img_size=(40,40), R=10, seed=123):
         ytr_idx = y_indices[train_idx]; yte_idx = y_indices[test_idx]
         p = Xtr.shape[0]
         print(f"\n=== Rodada {r+1}/{R} ===")
-
-        # Perceptron one-vs-rest
         percs_w = np.zeros((C, p+1))
         for c in range(C):
             d_c = np.where(ytr_idx == c, 1, -1)
@@ -101,8 +99,6 @@ def run_recfac(root_folder='recfac', img_size=(40,40), R=10, seed=123):
             record['Perceptron']['best'] = {'acc':acc_perc,'cm':cm_perc}
         if record['Perceptron']['worst'] is None or acc_perc < record['Perceptron']['worst']['acc']:
             record['Perceptron']['worst'] = {'acc':acc_perc,'cm':cm_perc}
-
-        # ADALINE one-vs-rest
         adaline_w = np.zeros((C, p+1))
         for c in range(C):
             d_c = np.where(ytr_idx == c, 1.0, -1.0)
@@ -118,8 +114,6 @@ def run_recfac(root_folder='recfac', img_size=(40,40), R=10, seed=123):
             record['ADALINE']['best'] = {'acc':acc_ad,'cm':cm_ad}
         if record['ADALINE']['worst'] is None or acc_ad < record['ADALINE']['worst']['acc']:
             record['ADALINE']['worst'] = {'acc':acc_ad,'cm':cm_ad}
-
-        # MLP
         mlp = MultilayerPerceptron(Xtr, Ytr, topology=hp['mlp']['topology'],
                                    learning_rate=hp['mlp']['lr'], tol=hp['mlp']['tol'],
                                    max_epoch=hp['mlp']['max_epoch'])
@@ -127,7 +121,7 @@ def run_recfac(root_folder='recfac', img_size=(40,40), R=10, seed=123):
         preds_mlp_idx = []
         for k in range(Xte.shape[1]):
             xk = Xte[:, [k]]
-            out = mlp.predict(xk)  # shape (C,1)
+            out = mlp.predict(xk) 
             preds_mlp_idx.append(int(np.argmax(out[:,0])))
         preds_mlp_idx = np.array(preds_mlp_idx)
         acc_mlp = accuracy_score(yte_idx, preds_mlp_idx)
@@ -139,17 +133,11 @@ def run_recfac(root_folder='recfac', img_size=(40,40), R=10, seed=123):
             record['MLP']['worst'] = {'acc':acc_mlp,'cm':cm_mlp}
 
         print(f"Perceptron acc={acc_perc:.4f} | ADALINE acc={acc_ad:.4f} | MLP acc={acc_mlp:.4f}")
-
-    # summary
     summary = {}
     for m in models:
         arr = np.array(accuracies[m])
         summary[m] = {'mean':arr.mean(),'std':arr.std(),'max':arr.max(),'min':arr.min()}
-
-    # boxplot
     plt.figure(figsize=(7,5)); plt.boxplot([accuracies[m] for m in models], tick_labels=models); plt.title('Boxplot de acurácia'); plt.grid(); plt.tight_layout(); plt.show()
-
-    # confusion heatmaps best/worst
     for m in models:
         best = record[m]['best']; worst = record[m]['worst']
         fig, axs = plt.subplots(1,2,figsize=(12,5))
@@ -159,7 +147,6 @@ def run_recfac(root_folder='recfac', img_size=(40,40), R=10, seed=123):
         axs[1].set_title(f'{m} - PIOR (acc={worst["acc"]:.3f})')
         plt.suptitle(f'{m} - Matrizes (melhor vs pior)')
         plt.tight_layout(); plt.show()
-
     return {'accuracies':accuracies, 'record':record, 'summary':summary, 'class_names':class_names}
 
 if __name__ == "__main__":
